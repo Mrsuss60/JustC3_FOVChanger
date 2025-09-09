@@ -1,5 +1,5 @@
 # JustC3-FOVChanger
-A Just Cause 3 script to change gameplay camera FOV on PC
+A Just Cause 3 script to change gameplay camera FOV on PC without the need for an external tool 
 
 Usage:  
 
@@ -12,3 +12,4 @@ Usage:
   <img src="https://github.com/user-attachments/assets/d5dd5789-9e24-4946-80bf-4193f6232525" alt="jc3">
 </p>
 
+Thanks to [BakuStorm](https://github.com/BakuStorm) for [JC3FOVFixer](https://github.com/BakuStorm/JC3FOVFixer) and providing the memory addresses
