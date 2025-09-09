@@ -18,5 +18,10 @@
 #include <string>
 #include <sstream>
 #include <cmath>
+#include "globals.h"
+#include "fov.h"
+#include "g_memory.h"
+#include "console.h"
+
 
 #endif //PCH_H
