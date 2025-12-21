@@ -52,7 +52,6 @@ namespace {
 
 
     unsigned int __stdcall InitThread(void*) {
-        LoadOriginalDinput8();
         LoadFOVDll();
         return 0;
     }
