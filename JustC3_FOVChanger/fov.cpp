@@ -4,30 +4,15 @@ float DegToRad(float degrees) {
     return degrees * (3.14159265359f / 180.0f);
 }
 
-void SaveFOV(float fov) {
-    std::ofstream out("JustC3-FOVChanger.cfg", std::ios::trunc);
-    if (out) out << "FOV value = " << fov;
-}
-
-float LoadFOV() {
-    std::ifstream in("JustC3-FOVChanger.cfg");
-    float fov = DEFAULT_FOV;
-    if (in) {
-        std::string key1, key2;
-        char eq;
-        float value;
-        if (in >> key1 >> key2 >> eq >> value && key1 == "FOV" && key2 == "value" && eq == '=') {
-            fov = value;
-        }
-    }
-    return fov;
-}
-
 bool ApplyFOVToGame(float newFOV) {
     float radians = DegToRad(newFOV);
-    uintptr_t* baseAddrPtr = (uintptr_t*)g_cameraManagerAddr;
+
+    if (!IsValidAddress((void*)g_Camera_FOV_Addr)) return false;
+
+    uintptr_t* baseAddrPtr = (uintptr_t*)g_Camera_FOV_Addr;
     if (!IsValidAddress(baseAddrPtr)) return false;
     uintptr_t baseAddr = *baseAddrPtr;
+
     if (!IsValidAddress((void*)baseAddr)) return false;
     uintptr_t* currentCameraPtr = (uintptr_t*)(baseAddr + g_currentCameraOff);
     if (!IsValidAddress(currentCameraPtr)) return false;
@@ -35,19 +20,45 @@ bool ApplyFOVToGame(float newFOV) {
     if (!IsValidAddress((void*)currentCamera)) return false;
 
     BYTE* flagsPtr = (BYTE*)(currentCamera + g_cameraFlagsOff);
-    BYTE flagsValue = *flagsPtr | 0x10;
-    PatchMemory(flagsPtr, &flagsValue, sizeof(BYTE));
+    if (IsValidAddress(flagsPtr)) {
+        BYTE flagsValue = *flagsPtr | 0x10;
+        PatchMemory(flagsPtr, &flagsValue, sizeof(BYTE));
+    }
 
     float* fov1Ptr = (float*)(currentCamera + g_fovOff1);
     float* fov2Ptr = (float*)(currentCamera + g_fovOff2);
-    PatchMemory(fov1Ptr, &radians, sizeof(float));
-    PatchMemory(fov2Ptr, &radians, sizeof(float));
+
+    if (IsValidAddress(fov1Ptr)) PatchMemory(fov1Ptr, &radians, sizeof(float));
+    if (IsValidAddress(fov2Ptr)) PatchMemory(fov2Ptr, &radians, sizeof(float));
 
     return true;
 }
 
+void SetPatchesEnabled(bool enable) {
+    if (enable) {
+        if (IsValidAddress((void*)g_patchAddr1)) NopMemory(g_patchAddr1, PATTERN_1.size());
+        if (IsValidAddress((void*)g_patchAddr2)) NopMemory(g_patchAddr2, PATTERN_2.size());
+        if (IsValidAddress((void*)g_patchAddr3)) NopMemory(g_patchAddr3, PATTERN_3.size());
+        Log("Mods Enabled: Game reset functions disabled.");
+    }
+    else {
+        if (IsValidAddress((void*)g_patchAddr1) && !g_backupBytes1.empty())
+            PatchMemory((void*)g_patchAddr1, g_backupBytes1.data(), g_backupBytes1.size());
+
+        if (IsValidAddress((void*)g_patchAddr2) && !g_backupBytes2.empty())
+            PatchMemory((void*)g_patchAddr2, g_backupBytes2.data(), g_backupBytes2.size());
+
+        if (IsValidAddress((void*)g_patchAddr3) && !g_backupBytes3.empty())
+            PatchMemory((void*)g_patchAddr3, g_backupBytes3.data(), g_backupBytes3.size());
+
+        Log("Mods Disabled: Original game code restored.");
+    }
+}
+
 bool ReadGameFOV(float& outFov) {
-    uintptr_t* baseAddrPtr = (uintptr_t*)g_cameraManagerAddr;
+    if (!IsValidAddress((void*)g_Camera_FOV_Addr)) return false;
+
+    uintptr_t* baseAddrPtr = (uintptr_t*)g_Camera_FOV_Addr;
     if (!IsValidAddress(baseAddrPtr)) return false;
     uintptr_t baseAddr = *baseAddrPtr;
     if (!IsValidAddress((void*)baseAddr)) return false;
@@ -61,70 +72,49 @@ bool ReadGameFOV(float& outFov) {
     return true;
 }
 
-void SmoothFOVLoop() {
-    constexpr float MAX_STEP = 0.025f;
-
-    while (g_initialized.load()) {
-        if (g_fovOverrideEnabled.load()) {
-            float current = g_currentFOV.load();
-            float target = g_targetFOV.load();
-            float delta = std::clamp(target - current, -MAX_STEP, MAX_STEP);
-            float newFOV = current + delta;
-
-            g_currentFOV.store(newFOV);
-            ApplyFOVToGame(newFOV);
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(0));
-    }
-}
-
 void KeyPollLoop() {
-    static bool togglePressedLastFrame = false;
+    static bool lastToggle = false;
 
     while (g_initialized.load()) {
-        bool togglePressedThisFrame = (GetAsyncKeyState(TOGGLE_KEY) & 0x8000) != 0;
 
-        if (togglePressedThisFrame && !togglePressedLastFrame) {
-            bool currentToggleState = g_fovOverrideEnabled.load();
-            g_fovOverrideEnabled.store(!currentToggleState);
-
-            if (!currentToggleState) {
-                float currentFov = DEFAULT_FOV;
-                ReadGameFOV(currentFov);
-                g_currentFOV.store(currentFov);
-
-                g_targetFOV.store(g_lastFOV);
-
-                PatchSetFovCall(true);
-            }
-            else {
-                g_lastFOV = g_targetFOV.load();
-                ReadGameFOV(g_gameFOV);
-                g_targetFOV.store(g_gameFOV);
-                PatchSetFovCall(false);
-            }
-
-            Log(std::string("FOV Override ") + (g_fovOverrideEnabled.load() ? "Enabled" : "Disabled"));
+        if (HasConfigChanged()) {
+            LoadConfig();
+            Log("Config Reloaded!");
         }
 
-        togglePressedLastFrame = togglePressedThisFrame;
+        bool currToggle = (GetAsyncKeyState(g_ToggleKey) & 0x8000) != 0;
+        if (currToggle && !lastToggle) {
+            g_fovOverrideEnabled = !g_fovOverrideEnabled;
 
-        if (g_fovOverrideEnabled.load()) {
-            if (GetAsyncKeyState(INCREASE_KEY) & 0x8000) {
-                g_targetFOV.store((std::min)(MAX_FOV, g_targetFOV.load() + FOV_CH_RATE));
-                SaveFOV(g_targetFOV.load());
-                Log("FOV Increased: " + std::to_string(g_targetFOV.load()));
+            SetPatchesEnabled(g_fovOverrideEnabled);
+
+            if (g_fovOverrideEnabled) {
+                ApplyFOVToGame(g_currentFOV.load());
             }
-            if (GetAsyncKeyState(DECREASE_KEY) & 0x8000) {
-                g_targetFOV.store((std::max)(MIN_FOV, g_targetFOV.load() - FOV_CH_RATE));
-                SaveFOV(g_targetFOV.load());
-                Log("FOV Decreased: " + std::to_string(g_targetFOV.load()));
+        }
+        lastToggle = currToggle;
+
+        if (g_fovOverrideEnabled) {
+            ApplyFOVToGame(g_currentFOV.load());
+
+            bool changed = false;
+            float fov = g_currentFOV.load();
+
+            if (GetAsyncKeyState(g_IncreaseKey) & 0x8000) {
+                fov += g_Step;
+                changed = true;
+                Log("FOV Increased: " + std::to_string(fov));
             }
-            if (GetAsyncKeyState(RESET_KEY) & 0x8000) {
-                g_targetFOV.store(DEFAULT_FOV);
-                SaveFOV(DEFAULT_FOV);
-                Log("FOV Reset to Default: " + std::to_string(DEFAULT_FOV));
+            if (GetAsyncKeyState(g_DecreaseKey) & 0x8000) {
+                fov -= g_Step;
+                changed = true;
+                Log("FOV Decreased: " + std::to_string(fov));
+            }
+
+            if (changed) {
+                fov = std::clamp(fov, MIN_FOV, MAX_FOV);
+                g_currentFOV.store(fov);
+                SaveConfig();
             }
         }
 

@@ -151,10 +151,12 @@
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="config_file.cpp" />
+    <ClInclude Include="config_file.h" />
     <ClCompile Include="console.cpp" />
     <ClCompile Include="fov.cpp" />
-    <ClCompile Include="JustC3_FOVChanger.cpp" />
     <ClCompile Include="g_memory.cpp" />
+    <ClCompile Include="JustC3_FOVChanger.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

@@ -18,10 +18,13 @@
 #include <string>
 #include <sstream>
 #include <cmath>
+#include <psapi.h>
+#include <sys/stat.h>
 #include "globals.h"
 #include "fov.h"
 #include "g_memory.h"
 #include "console.h"
+#include "config_file.h"
 
 
 #endif //PCH_H

@@ -21,15 +21,36 @@ bool PatchMemory(void* address, const void* data, size_t size) {
     return false;
 }
 
-bool PatchSetFovCall(bool enable) {
-    void* callAddress = (void*)g_setFovFunc;
-    if (enable) {
-        BYTE nops[INSTRUCTION_PATCH_SIZE];
-        memset(nops, NOP_INSTRUCTION, INSTRUCTION_PATCH_SIZE);
-        return PatchMemory(callAddress, nops, INSTRUCTION_PATCH_SIZE);
+bool NopMemory(uintptr_t address, size_t size) {
+    if (!IsValidAddress((void*)address)) return false;
+    BYTE* nops = new BYTE[size];
+    memset(nops, NOP_INSTRUCTION, size);
+    bool result = PatchMemory((void*)address, nops, size);
+    delete[] nops;
+    return result;
+}
+
+uintptr_t GetModuleSize(HMODULE hModule) {
+    MODULEINFO mi;
+    if (GetModuleInformation(GetCurrentProcess(), hModule, &mi, sizeof(mi))) {
+        return (uintptr_t)mi.SizeOfImage;
     }
-    else if (g_originalCallBytes) {
-        return PatchMemory(callAddress, g_originalCallBytes, INSTRUCTION_PATCH_SIZE);
+    return 0;
+}
+
+uintptr_t FindPattern(const std::vector<BYTE>& pattern, const std::string& mask) {
+    uintptr_t base = g_gameBaseAddr;
+    uintptr_t size = GetModuleSize((HMODULE)base);
+
+    for (uintptr_t i = base; i < base + size - pattern.size(); i++) {
+        bool found = true;
+        for (size_t j = 0; j < pattern.size(); j++) {
+            if (mask[j] != '?' && pattern[j] != *(BYTE*)(i + j)) {
+                found = false;
+                break;
+            }
+        }
+        if (found) return i;
     }
-    return false;
+    return 0;
 }
