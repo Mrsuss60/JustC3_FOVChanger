@@ -7,7 +7,10 @@ constexpr bool ENABLE_CONSOLE = false;
 
 constexpr float MIN_FOV = 1.0f;
 constexpr float MAX_FOV = 120.0f;
-constexpr float DEFAULT_FOV = 34.89f;
+constexpr float DEFAULT_FOV = 65.5f;
+
+//Default on foot FOV in radian 0.60 to 0.70 
+//Default wingsuit and parachute FOV in radian 0.95
 
 inline float g_Step = 0.25f;
 inline int g_ToggleKey = 118;
@@ -48,6 +51,7 @@ constexpr int g_currentCameraOff = 0x5c0;
 constexpr int g_cameraFlagsOff = 0x55e;
 constexpr int g_fovOff1 = 0x580;
 constexpr int g_fovOff2 = 0x584;
+constexpr int g_fovOff3 = 0x588;
 
 constexpr uintptr_t OFFSET_CAM_NEW = 0x2ED0E20;
 constexpr uintptr_t OFFSET_CAM_OLD = 0x2ED0E20;
