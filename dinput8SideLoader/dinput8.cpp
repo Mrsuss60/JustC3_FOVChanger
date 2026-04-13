@@ -33,6 +33,10 @@ namespace {
         return true;
     }
 
+    bool IsGameWindowReady() {
+        return FindWindowA(nullptr, "Just Cause 3") != nullptr;
+    }
+
     void LoadFOVDll() {
         if (!g_fovDll) g_fovDll = LoadLibraryA(FOV_DLL_NAME);
     }
@@ -50,13 +54,21 @@ namespace {
         }
     }
 
-
     unsigned int __stdcall InitThread(void*) {
+        int attempts = 0;
+        while (!IsGameWindowReady() && attempts < 100) {
+            Sleep(100);
+            attempts++;
+        }
+
+        Sleep(1000); 
+
         LoadFOVDll();
         return 0;
     }
 
 }
+
 extern "C" __declspec(dllexport) HRESULT WINAPI DirectInput8Create(
     HINSTANCE hinst,
     DWORD dwVersion,
