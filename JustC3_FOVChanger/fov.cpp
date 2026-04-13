@@ -7,29 +7,37 @@ float DegToRad(float degrees) {
 bool ApplyFOVToGame(float newFOV) {
     float radians = DegToRad(newFOV);
 
-    if (!IsValidAddress((void*)g_Camera_FOV_Addr)) return false;
+    if (!g_Camera_FOV_Addr) return false;
 
-    uintptr_t* baseAddrPtr = (uintptr_t*)g_Camera_FOV_Addr;
-    if (!IsValidAddress(baseAddrPtr)) return false;
-    uintptr_t baseAddr = *baseAddrPtr;
+    uintptr_t baseAddr = *(uintptr_t*)g_Camera_FOV_Addr;
+    if (!baseAddr) return false;
 
-    if (!IsValidAddress((void*)baseAddr)) return false;
-    uintptr_t* currentCameraPtr = (uintptr_t*)(baseAddr + g_currentCameraOff);
-    if (!IsValidAddress(currentCameraPtr)) return false;
-    uintptr_t currentCamera = *currentCameraPtr;
-    if (!IsValidAddress((void*)currentCamera)) return false;
+    uintptr_t currentCamera = *(uintptr_t*)(baseAddr + g_currentCameraOff);
+    if (!currentCamera) return false;
 
     BYTE* flagsPtr = (BYTE*)(currentCamera + g_cameraFlagsOff);
-    if (IsValidAddress(flagsPtr)) {
-        BYTE flagsValue = *flagsPtr | 0x10;
-        PatchMemory(flagsPtr, &flagsValue, sizeof(BYTE));
+    if (flagsPtr) {
+        *flagsPtr |= 0x10;
     }
 
     float* fov1Ptr = (float*)(currentCamera + g_fovOff1);
     float* fov2Ptr = (float*)(currentCamera + g_fovOff2);
+    float* fov3Ptr = (float*)(currentCamera + g_fovOff3);
 
-    if (IsValidAddress(fov1Ptr)) PatchMemory(fov1Ptr, &radians, sizeof(float));
-    if (IsValidAddress(fov2Ptr)) PatchMemory(fov2Ptr, &radians, sizeof(float));
+    static uintptr_t lastLoggedFovAddr = 0;
+    if (fov1Ptr) {
+        uintptr_t currentFovAddr = (uintptr_t)fov1Ptr;
+        if (currentFovAddr != lastLoggedFovAddr) {
+            std::stringstream ss;
+            ss << "FOV Address: 0x" << std::hex << currentFovAddr;
+            Log(ss.str());
+            lastLoggedFovAddr = currentFovAddr;
+        }
+    }
+
+    if (fov1Ptr) *fov1Ptr = radians;
+    if (fov2Ptr) *fov2Ptr = radians;
+    if (fov3Ptr) *fov3Ptr = radians;
 
     return true;
 }
