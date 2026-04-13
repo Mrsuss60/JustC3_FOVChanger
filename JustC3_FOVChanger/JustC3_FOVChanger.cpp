@@ -57,7 +57,6 @@ static void InitializeFOVHook() {
     Log("Patches Applied.");
 
     LoadConfig();
-    g_currentFOV.store(DEFAULT_FOV);
 
     g_initialized.store(true);
     g_keyThread = std::thread(KeyPollLoop);
@@ -66,7 +65,9 @@ static void InitializeFOVHook() {
 static void CleanupFOVHook() {
     g_initialized.store(false);
 
-    if (g_keyThread.joinable()) g_keyThread.detach();
+    if (g_keyThread.joinable()) {
+        g_keyThread.join();
+    }
 
     if (!g_backupBytes1.empty()) PatchMemory((void*)g_patchAddr1, g_backupBytes1.data(), g_backupBytes1.size());
     if (!g_backupBytes2.empty()) PatchMemory((void*)g_patchAddr2, g_backupBytes2.data(), g_backupBytes2.size());
